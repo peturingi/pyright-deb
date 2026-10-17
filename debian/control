@@ -1,0 +1,26 @@
+Source: pyright
+Section: devel
+Priority: optional
+Maintainer: Pétur Ingi Egilsson <petur@ingi.dk>
+Build-Depends: debhelper-compat (= 13), nodejs (>= 20.19)
+Standards-Version: 4.7.2
+Homepage: https://github.com/microsoft/pyright
+Vcs-Git: https://github.com/peturingi/pyright-deb.git
+Vcs-Browser: https://github.com/peturingi/pyright-deb
+Rules-Requires-Root: no
+
+Package: pyright
+Architecture: all
+Depends: nodejs (>= 14), ${misc:Depends}
+Suggests: python3
+Description: static type checker and language server for Python
+ Pyright is a full-featured, standards-based static type checker for
+ Python, designed for high performance and for use with large source
+ bases.
+ .
+ This package provides the pyright command-line type checker and the
+ pyright-langserver language server (LSP), for use with editors such as
+ Vim, Neovim, Emacs, Helix or Kate.
+ .
+ It bundles the typeshed stubs and the JavaScript libraries pyright
+ depends on.

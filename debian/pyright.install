@@ -1,0 +1,6 @@
+debian/bin/pyright usr/bin
+debian/bin/pyright-langserver usr/bin
+packages/pyright/index.js usr/share/pyright
+packages/pyright/langserver.index.js usr/share/pyright
+packages/pyright/package.json usr/share/pyright
+packages/pyright/dist usr/share/pyright

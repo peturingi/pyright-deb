@@ -1,0 +1,38 @@
+#!/bin/sh
+# Moves the pyright submodule to the latest stable upstream release (or to
+# the tag given as the first argument), adds a matching debian/changelog
+# entry and commits both. Then run `make` to build the new .deb.
+set -eu
+cd "$(dirname "$0")"
+
+if [ $# -gt 0 ]; then
+    tag=$1
+else
+    tag=$(curl -fsSL https://api.github.com/repos/microsoft/pyright/releases/latest |
+        python3 -I -c 'import json, sys; print(json.load(sys.stdin)["tag_name"])')
+fi
+
+current=$(sed -n '1s/^pyright (\(.*\)-[^-]*).*/\1/p' debian/changelog)
+if [ "$tag" = "$current" ]; then
+    echo "Already at pyright $tag."
+    exit 0
+fi
+
+git submodule update --init pyright
+git -C pyright fetch --quiet --tags origin
+git -C pyright checkout --quiet "refs/tags/$tag"
+
+maintainer=$(sed -n 's/^Maintainer: //p' debian/control)
+tmp=$(mktemp)
+{
+    printf 'pyright (%s-1) trixie; urgency=medium\n\n' "$tag"
+    printf '  * New upstream release %s.\n' "$tag"
+    printf '    https://github.com/microsoft/pyright/releases/tag/%s\n\n' "$tag"
+    printf ' -- %s  %s\n\n' "$maintainer" "$(date -R)"
+    cat debian/changelog
+} > "$tmp"
+mv "$tmp" debian/changelog
+
+git add pyright debian/changelog
+git commit --quiet -m "Update pyright to $tag"
+echo "Updated pyright $current -> $tag."

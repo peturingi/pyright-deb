@@ -1,0 +1,23 @@
+#!/bin/sh
+# Installs the pyright .deb into the image and smoke-tests it.
+set -eu
+
+debs=$(ls "$SRCDIR"/debs/pyright_*_all.deb 2>/dev/null) ||
+    { echo "No pyright .deb in mkosi.output/; run 'make deb' first." >&2; exit 1; }
+# Newest version only, if several builds are lying around.
+deb=$(printf '%s\n' "$debs" | sort -V | tail -n1)
+# Its only dependency, nodejs, is in Packages= (mkosi.conf).
+dpkg -i "$deb"
+
+pyright --version
+
+tmp=$(mktemp -d)
+printf 'x: int = 1\n' > "$tmp/good.py"
+printf 'x: int = "not an int"\n' > "$tmp/bad.py"
+
+pyright "$tmp/good.py"
+if pyright "$tmp/bad.py"; then
+    echo "pyright did not report the type error in bad.py" >&2
+    exit 1
+fi
+rm -rf "$tmp"

@@ -1,0 +1,45 @@
+#!/bin/sh
+# Runs inside the trixie build overlay (see mkosi.conf). Assembles a
+# Debian source tree from the pyright submodule plus ./debian, fetches the
+# JavaScript build dependencies (the only step needing network) and runs
+# dpkg-buildpackage. The resulting .deb is copied to mkosi.output/ in the
+# repository (with Format=none, mkosi copies nothing out by itself).
+set -eu
+
+upstream=$(node -p 'require(process.argv[1]).version' "$SRCDIR/pyright/packages/pyright/package.json")
+debversion=$(dpkg-parsechangelog -l "$SRCDIR/debian/changelog" -S Version)
+if [ "${debversion%-*}" != "$upstream" ]; then
+    echo "debian/changelog is at $debversion but the pyright submodule is at $upstream." >&2
+    echo "Run ./update-pyright, or add a changelog entry by hand." >&2
+    exit 1
+fi
+
+# Build out of tree so the submodule checkout stays clean.
+src="$BUILDDIR/pyright-$upstream"
+rm -rf "$BUILDDIR"/pyright-* "$BUILDDIR"/pyright_*
+cp -a "$SRCDIR/pyright" "$src"
+rm -f "$src/.git"
+cp -a "$SRCDIR/debian" "$src/debian"
+
+# Upstream pins pnpm via package.json "packageManager". pnpm 11 needs a newer
+# Node than trixie's 20.x, so use pnpm's standalone build, which bundles its
+# own Node; the actual pyright build still runs on trixie's nodejs.
+pnpm_version=$(node -p 'require(process.argv[1]).packageManager.replace(/^pnpm@/, "")' "$src/package.json")
+pnpm_prefix="$BUILDDIR/pnpm-exe-$pnpm_version"
+if [ ! -x "$pnpm_prefix/node_modules/.bin/pnpm" ]; then
+    rm -rf "$BUILDDIR"/pnpm-exe-*
+    npm install --no-fund --no-audit --prefix "$pnpm_prefix" "@pnpm/exe@$pnpm_version"
+fi
+export PATH="$pnpm_prefix/node_modules/.bin:$PATH"
+export CI=true
+
+# Only what the CLI bundle needs: skips the VS Code extension and its
+# native modules.
+(cd "$src" && pnpm install --frozen-lockfile --store-dir "$BUILDDIR/pnpm-store" \
+    --filter pyright --filter pyright-internal --include-workspace-root)
+# Build-Depends come from BuildPackages= in mkosi.conf. Not re-checked:
+# under mkosi 25 (trixie's version) the check can't see them.
+(cd "$src" && dpkg-buildpackage --build=binary --no-sign --no-check-builddeps)
+
+mkdir -p "$SRCDIR/mkosi.output"
+cp "$BUILDDIR"/pyright_*.deb "$SRCDIR/mkosi.output/"

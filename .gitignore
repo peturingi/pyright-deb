@@ -1,0 +1,8 @@
+/mkosi.output/
+/mkosi.cache/
+/mkosi.builddir/
+/mkosi.tools/
+/mkosi.tools.manifest
+/.mkosi-private/
+/test/mkosi.output/
+/test/mkosi.cache/
